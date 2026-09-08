@@ -18,6 +18,8 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'cart.intended' => \App\Http\Middleware\StoreCartIntendedUrl::class,
+            'wishlist.intended' => \App\Http\Middleware\StoreWishlistIntendedUrl::class,
         ]);
 
         //

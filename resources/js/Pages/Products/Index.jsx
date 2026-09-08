@@ -1,5 +1,8 @@
 import Pagination from '@/Components/Pagination';
-import { Head, Link, router } from '@inertiajs/react';
+import CartLink from '@/Components/CartLink';
+import WishlistButton from '@/Components/WishlistButton';
+import WishlistLink from '@/Components/WishlistLink';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 
 const formatRupiah = (value) =>
@@ -23,7 +26,9 @@ export default function Index({
     sort = 'newest',
     categories = [],
     filters = {},
+    wishlistedProductIds = [],
 }) {
+    const { auth, cart_count: cartCount = 0, wishlist_count: wishlistCount = 0 } = usePage().props;
     const [searchTerm, setSearchTerm] = useState(search);
     const [filterState, setFilterState] = useState({
         category: filters.category ?? [],
@@ -170,12 +175,14 @@ export default function Index({
                         <Link href="/" className="text-xl font-semibold tracking-tight text-slate-900">
                             Banijya Shop
                         </Link>
-                        <Link
-                            href={route('login')}
-                            className="text-sm font-medium text-slate-600 transition hover:text-slate-900"
-                        >
-                            Masuk
-                        </Link>
+                        <div className="flex items-center gap-5">
+                            {auth?.user ? (
+                                <>
+                                    <WishlistLink count={wishlistCount} />
+                                    <CartLink count={cartCount} />
+                                </>
+                            ) : <Link href={route('login')} className="text-sm font-medium text-slate-600 transition hover:text-slate-900">Masuk</Link>}
+                        </div>
                     </div>
                 </header>
 
@@ -401,49 +408,36 @@ export default function Index({
                     {products.data.length > 0 ? (
                         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                             {products.data.map((product) => (
-                                <Link
+                                <article
                                     key={product.id}
-                                    href={route('products.show', product.slug)}
-                                    className="group overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-1 hover:shadow-lg"
-                                    aria-label={`${product.name}, detail produk segera tersedia`}
+                                    className="group relative overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-1 hover:shadow-lg"
                                 >
-                                    <div className="aspect-[4/3] overflow-hidden bg-slate-100">
-                                        {product.image_path ? (
-                                            <img
-                                                src={product.image_path}
-                                                alt={product.name}
-                                                className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                                            />
-                                        ) : (
-                                            <div className="flex h-full items-center justify-center bg-gradient-to-br from-amber-100 via-orange-50 to-slate-100 text-sm font-medium text-amber-800">
-                                                Banijya Shop
+                                    <div className="relative">
+                                        <Link href={route('products.show', product.slug)} aria-label={`${product.name}, detail produk segera tersedia`}>
+                                            <div className="aspect-[4/3] overflow-hidden bg-slate-100">
+                                                {product.image_path ? (
+                                                    <img src={product.image_path} alt={product.name} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                                                ) : (
+                                                    <div className="flex h-full items-center justify-center bg-gradient-to-br from-amber-100 via-orange-50 to-slate-100 text-sm font-medium text-amber-800">Banijya Shop</div>
+                                                )}
                                             </div>
-                                        )}
+                                        </Link>
+                                        <WishlistButton
+                                            productId={product.id}
+                                            isWishlisted={auth?.user ? wishlistedProductIds.includes(product.id) : false}
+                                            className="absolute right-3 top-3 h-10 w-10 shadow-sm"
+                                        />
                                     </div>
 
-                                    <div className="p-5">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                            {product.category?.name ?? 'Tanpa kategori'}
-                                        </p>
-                                        <h2 className="mt-2 line-clamp-2 min-h-12 text-lg font-semibold text-slate-900">
-                                            {product.name}
-                                        </h2>
+                                    <Link href={route('products.show', product.slug)} className="block p-5">
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{product.category?.name ?? 'Tanpa kategori'}</p>
+                                        <h2 className="mt-2 line-clamp-2 min-h-12 text-lg font-semibold text-slate-900">{product.name}</h2>
                                         <div className="mt-4 flex items-center justify-between gap-3">
-                                            <p className="font-semibold text-slate-950">
-                                                {formatRupiah(product.price)}
-                                            </p>
-                                            {product.stock > 0 ? (
-                                                <span className="text-xs font-medium text-emerald-700">
-                                                    Tersedia
-                                                </span>
-                                            ) : (
-                                                <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">
-                                                    Stok habis
-                                                </span>
-                                            )}
+                                            <p className="font-semibold text-slate-950">{formatRupiah(product.price)}</p>
+                                            {product.stock > 0 ? <span className="text-xs font-medium text-emerald-700">Tersedia</span> : <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">Stok habis</span>}
                                         </div>
-                                    </div>
-                                </Link>
+                                    </Link>
+                                </article>
                             ))}
                         </div>
                     ) : (

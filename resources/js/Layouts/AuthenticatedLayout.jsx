@@ -1,4 +1,6 @@
 import ApplicationLogo from '@/Components/ApplicationLogo';
+import CartLink from '@/Components/CartLink';
+import WishlistLink from '@/Components/WishlistLink';
 import Dropdown from '@/Components/Dropdown';
 import NavLink from '@/Components/NavLink';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
@@ -6,7 +8,8 @@ import { Link, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 
 export default function AuthenticatedLayout({ header, children }) {
-    const user = usePage().props.auth.user;
+    const { auth, cart_count: cartCount = 0, wishlist_count: wishlistCount = 0 } = usePage().props;
+    const user = auth.user;
 
     const [showingNavigationDropdown, setShowingNavigationDropdown] =
         useState(false);
@@ -30,6 +33,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                 >
                                     Dashboard
                                 </NavLink>
+                                <NavLink
+                                    href={route('orders.index')}
+                                    active={route().current('orders.*')}
+                                >
+                                    Riwayat Pesanan
+                                </NavLink>
                                 {user.role === 'admin' && (
                                     <NavLink
                                         href={route('admin.dashboard')}
@@ -42,6 +51,8 @@ export default function AuthenticatedLayout({ header, children }) {
                         </div>
 
                         <div className="hidden sm:ms-6 sm:flex sm:items-center">
+                            <WishlistLink count={wishlistCount} className="me-4" />
+                            <CartLink count={cartCount} className="me-4" />
                             <div className="relative ms-3">
                                 <Dropdown>
                                     <Dropdown.Trigger>
@@ -136,6 +147,15 @@ export default function AuthenticatedLayout({ header, children }) {
                     }
                 >
                     <div className="space-y-1 pb-3 pt-2">
+                        <ResponsiveNavLink href={route('wishlist.index')} active={route().current('wishlist.index')}>
+                            Wishlist {wishlistCount > 0 ? `(${wishlistCount})` : ''}
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink href={route('cart.index')} active={route().current('cart.index')}>
+                            Keranjang {cartCount > 0 ? `(${cartCount})` : ''}
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink href={route('orders.index')} active={route().current('orders.*')}>
+                            Riwayat Pesanan
+                        </ResponsiveNavLink>
                         <ResponsiveNavLink
                             href={route('dashboard')}
                             active={route().current('dashboard')}

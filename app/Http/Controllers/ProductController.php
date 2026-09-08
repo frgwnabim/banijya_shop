@@ -54,6 +54,7 @@ class ProductController extends Controller
 
         return Inertia::render('Products/Index', [
             'products' => $products,
+            'wishlistedProductIds' => $request->user()?->wishlists()->pluck('product_id')->values() ?? [],
             'search' => $search,
             'sort' => $sort,
             'categories' => Category::query()->orderBy('name')->get(['id', 'name']),
@@ -66,13 +67,23 @@ class ProductController extends Controller
         ]);
     }
 
-    public function show(Product $product): Response
+    public function show(Request $request, Product $product): Response
     {
         abort_unless($product->status === 'active', 404);
 
         $product->load(['category', 'images'])
             ->loadAvg('reviews', 'rating')
             ->loadCount('reviews');
+
+        $productReviews = $product->reviews()
+            ->with('user:id,name')
+            ->latest()
+            ->get();
+        $userReview = $request->user()?->reviews()->where('product_id', $product->id)->first();
+        $eligibleToReview = $request->user()?->orders()
+            ->where('status', 'delivered')
+            ->whereHas('items', fn ($query) => $query->where('product_id', $product->id))
+            ->exists() ?? false;
 
         $relatedProducts = Product::query()
             ->with('category')
@@ -86,6 +97,22 @@ class ProductController extends Controller
         return Inertia::render('Products/Show', [
             'product' => $product,
             'relatedProducts' => $relatedProducts,
+            'isWishlisted' => $request->user()?->wishlists()->where('product_id', $product->id)->exists() ?? false,
+            'reviews' => $productReviews->map(fn ($review) => [
+                'id' => $review->id,
+                'rating' => $review->rating,
+                'comment' => $review->comment,
+                'created_at' => $review->created_at?->toISOString(),
+                'updated_at' => $review->updated_at?->toISOString(),
+                'user' => ['name' => $review->user->name],
+            ])->values(),
+            'userReview' => $userReview ? [
+                'id' => $userReview->id,
+                'rating' => $userReview->rating,
+                'comment' => $userReview->comment,
+            ] : null,
+            'eligibleToReview' => $eligibleToReview,
+            'canReview' => $eligibleToReview && ! $userReview,
         ]);
     }
 }

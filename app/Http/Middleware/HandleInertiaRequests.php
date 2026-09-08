@@ -36,6 +36,12 @@ class HandleInertiaRequests extends Middleware
                     ? $request->user()->only(['id', 'name', 'email', 'role', 'phone', 'email_verified_at'])
                     : null,
             ],
+            'cart_count' => fn () => $request->user()?->cart?->items()->sum('quantity') ?? 0,
+            'wishlist_count' => fn () => $request->user()?->wishlists()->count() ?? 0,
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+            ],
         ];
     }
 }

@@ -1,4 +1,7 @@
-import { Head, Link } from '@inertiajs/react';
+import CartLink from '@/Components/CartLink';
+import WishlistButton from '@/Components/WishlistButton';
+import WishlistLink from '@/Components/WishlistLink';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 
 const formatRupiah = (value) =>
@@ -48,7 +51,120 @@ function RelatedProductCard({ product }) {
     );
 }
 
-export default function Show({ product, relatedProducts = [] }) {
+function ReviewStars({ rating, interactive = false, onChange }) {
+    return (
+        <div className="flex items-center gap-1" aria-label={`${rating} dari 5 bintang`}>
+            {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                    key={star}
+                    type={interactive ? 'button' : undefined}
+                    onClick={interactive ? () => onChange(star) : undefined}
+                    className={interactive ? 'text-2xl leading-none transition hover:scale-110' : 'text-lg leading-none'}
+                    aria-label={interactive ? `Beri rating ${star} dari 5` : undefined}
+                    tabIndex={interactive ? 0 : -1}
+                >
+                    <span className={star <= rating ? 'text-amber-500' : 'text-slate-300'}>★</span>
+                </button>
+            ))}
+        </div>
+    );
+}
+
+function ReviewSection({ product, reviews, userReview, canReview, eligibleToReview }) {
+    const { auth } = usePage().props;
+    const [editing, setEditing] = useState(false);
+    const { data, setData, post, patch, processing, errors, reset } = useForm({
+        rating: userReview?.rating ?? 5,
+        comment: userReview?.comment ?? '',
+    });
+
+    useEffect(() => {
+        setEditing(false);
+        reset('rating', 'comment');
+        setData({
+            rating: userReview?.rating ?? 5,
+            comment: userReview?.comment ?? '',
+        });
+    }, [userReview?.id]);
+
+    const submitReview = (event) => {
+        event.preventDefault();
+        const options = {
+            preserveScroll: true,
+            onSuccess: () => {
+                setEditing(false);
+                reset();
+            },
+        };
+
+        if (editing && userReview) {
+            patch(route('reviews.update', userReview.id), options);
+        } else {
+            post(route('reviews.store', product.id), options);
+        }
+    };
+
+    const deleteReview = () => {
+        if (window.confirm('Hapus ulasan ini?')) {
+            router.delete(route('reviews.destroy', userReview.id), { preserveScroll: true });
+        }
+    };
+
+    const averageRating = Number(product.reviews_avg_rating ?? 0);
+
+    return (
+        <section className="mt-16 rounded-2xl bg-white p-7 shadow-sm ring-1 ring-slate-200 sm:p-9" aria-labelledby="reviews-heading">
+            <div className="flex flex-col gap-5 border-b border-slate-100 pb-7 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-600">Pengalaman pelanggan</p>
+                    <h2 id="reviews-heading" className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Ulasan Produk</h2>
+                </div>
+                <div className="flex items-center gap-3">
+                    <span className="text-3xl font-semibold text-slate-950">{averageRating ? averageRating.toFixed(1) : '0.0'}</span>
+                    <div><ReviewStars rating={Math.round(averageRating)} /><p className="mt-1 text-sm text-slate-500">{reviews.length} ulasan</p></div>
+                </div>
+            </div>
+
+            {auth?.user && userReview && !editing && (
+                <div className="mt-7 rounded-xl bg-amber-50 p-5 ring-1 ring-amber-100">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div><p className="text-sm font-semibold text-amber-900">Ulasan kamu</p><ReviewStars rating={userReview.rating} /><p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-700">{userReview.comment || 'Tanpa komentar.'}</p></div>
+                        <div className="flex gap-3 text-sm font-semibold"><button type="button" onClick={() => setEditing(true)} className="text-amber-800 hover:text-amber-950">Edit</button><button type="button" onClick={deleteReview} className="text-red-600 hover:text-red-800">Hapus</button></div>
+                    </div>
+                </div>
+            )}
+
+            {auth?.user && (canReview || editing) && (
+                <form onSubmit={submitReview} className="mt-7 rounded-xl border border-slate-200 p-5">
+                    <h3 className="font-semibold text-slate-900">{editing ? 'Edit ulasan kamu' : 'Tulis ulasan'}</h3>
+                    <div className="mt-4"><span className="text-sm font-medium text-slate-700">Rating</span><ReviewStars rating={data.rating} interactive onChange={(rating) => setData('rating', rating)} />{errors.rating && <p className="mt-1 text-sm text-red-600">{errors.rating}</p>}</div>
+                    <label htmlFor="review-comment" className="mt-4 block text-sm font-medium text-slate-700">Komentar <span className="font-normal text-slate-400">(opsional)</span></label>
+                    <textarea id="review-comment" rows="4" value={data.comment} onChange={(event) => setData('comment', event.target.value)} className="mt-2 block w-full rounded-lg border-slate-300 focus:border-amber-500 focus:ring-amber-500" placeholder="Bagikan pengalaman kamu dengan produk ini" />
+                    {errors.comment && <p className="mt-1 text-sm text-red-600">{errors.comment}</p>}
+                    {errors.review && <p className="mt-1 text-sm text-red-600">{errors.review}</p>}
+                    <div className="mt-4 flex gap-3"><button type="submit" disabled={processing} className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-wait disabled:bg-slate-300">{processing ? 'Menyimpan...' : editing ? 'Simpan perubahan' : 'Kirim ulasan'}</button>{editing && <button type="button" onClick={() => setEditing(false)} className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Batal</button>}</div>
+                </form>
+            )}
+
+            {auth?.user && !userReview && !canReview && (
+                <p className="mt-7 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">{eligibleToReview ? 'Kamu sudah memiliki ulasan untuk produk ini.' : 'Beli dan terima produk ini dulu untuk bisa memberi ulasan.'}</p>
+            )}
+            {!auth?.user && <p className="mt-7 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">Login dan terima produk ini dulu untuk bisa memberi ulasan.</p>}
+
+            <div className="mt-8 space-y-6">
+                {reviews.length === 0 ? <p className="text-sm text-slate-500">Belum ada ulasan untuk produk ini</p> : reviews.map((review) => (
+                    <article key={review.id} className="border-b border-slate-100 pb-6 last:border-0 last:pb-0">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold text-slate-900">{review.user.name}</p><ReviewStars rating={review.rating} /></div><time className="text-xs text-slate-400" dateTime={review.created_at}>{new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(new Date(review.created_at))}</time></div>
+                        {review.comment && <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-600">{review.comment}</p>}
+                    </article>
+                ))}
+            </div>
+        </section>
+    );
+}
+
+export default function Show({ product, relatedProducts = [], isWishlisted = false, reviews = [], userReview = null, canReview = false, eligibleToReview = false }) {
+    const { auth, cart_count: cartCount = 0, wishlist_count: wishlistCount = 0, flash = {} } = usePage().props;
     const galleryImages = product.images?.length
         ? product.images.map((image) => image.path)
         : product.image_path
@@ -56,6 +172,7 @@ export default function Show({ product, relatedProducts = [] }) {
           : [];
     const [selectedImage, setSelectedImage] = useState(galleryImages[0] ?? null);
     const [quantity, setQuantity] = useState(product.stock > 0 ? 1 : 0);
+    const [isAdding, setIsAdding] = useState(false);
 
     useEffect(() => {
         setSelectedImage(galleryImages[0] ?? null);
@@ -67,8 +184,16 @@ export default function Show({ product, relatedProducts = [] }) {
         : null;
     const stockAvailable = product.stock > 0;
 
-    const showComingSoon = (feature) => {
-        window.alert(`Fitur ${feature} akan segera hadir.`);
+    const addToCart = () => {
+        setIsAdding(true);
+        router.post(route('cart.add'), {
+            product_id: product.id,
+            quantity,
+            return_to: `${window.location.pathname}${window.location.search}`,
+        }, {
+            preserveScroll: true,
+            onFinish: () => setIsAdding(false),
+        });
     };
 
     return (
@@ -81,12 +206,10 @@ export default function Show({ product, relatedProducts = [] }) {
                         <Link href="/products" className="text-xl font-semibold tracking-tight text-slate-900">
                             Banijya Shop
                         </Link>
-                        <Link
-                            href={route('products.index')}
-                            className="text-sm font-medium text-slate-600 transition hover:text-slate-900"
-                        >
-                            Kembali ke Produk
-                        </Link>
+                        <div className="flex items-center gap-5">
+                            {auth?.user && <><WishlistLink count={wishlistCount} /><CartLink count={cartCount} /></>}
+                            <Link href={route('products.index')} className="text-sm font-medium text-slate-600 transition hover:text-slate-900">Kembali ke Produk</Link>
+                        </div>
                     </div>
                 </header>
 
@@ -218,22 +341,17 @@ export default function Show({ product, relatedProducts = [] }) {
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={() => showComingSoon('cart')}
-                                    disabled={!stockAvailable}
+                                    onClick={addToCart}
+                                    disabled={!stockAvailable || isAdding}
                                     className="min-h-11 flex-1 rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                                 >
-                                    Tambah ke Keranjang
+                                    {isAdding ? 'Menambahkan...' : 'Tambah ke Keranjang'}
                                 </button>
-                                <button
-                                    type="button"
-                                    onClick={() => showComingSoon('wishlist')}
-                                    className="min-h-11 rounded-lg border border-slate-300 px-4 text-xl text-slate-700 transition hover:border-amber-500 hover:text-amber-600"
-                                    aria-label="Tambah ke Wishlist"
-                                    title="Tambah ke Wishlist"
-                                >
-                                    ♡
-                                </button>
+                                <WishlistButton productId={product.id} isWishlisted={auth?.user ? isWishlisted : false} className="min-h-11 w-12" />
                             </div>
+                            {flash.success && (
+                                <p className="mt-4 text-sm font-medium text-emerald-700" role="status">{flash.success}</p>
+                            )}
                         </div>
                     </section>
 
@@ -257,6 +375,13 @@ export default function Show({ product, relatedProducts = [] }) {
                             </div>
                         </section>
                     )}
+                    <ReviewSection
+                        product={product}
+                        reviews={reviews}
+                        userReview={userReview}
+                        canReview={canReview}
+                        eligibleToReview={eligibleToReview}
+                    />
                 </main>
             </div>
         </>
