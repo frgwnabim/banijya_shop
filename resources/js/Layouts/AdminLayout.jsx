@@ -5,9 +5,12 @@ const links = [
     { label: 'Dashboard', routeName: 'admin.dashboard', active: 'admin.dashboard' },
     { label: 'Produk', routeName: 'admin.products.index', active: 'admin.products.*' },
     { label: 'Kategori', routeName: 'admin.categories.index', active: 'admin.categories.*' },
+    { label: 'Inventory', routeName: 'admin.inventory.index', active: 'admin.inventory.*' },
+    { label: 'Orders', routeName: 'admin.orders.index', active: 'admin.orders.*' },
+    { label: 'Users', routeName: 'admin.users.index', active: 'admin.users.*' },
 ];
 
-const upcoming = ['Inventory', 'Orders', 'Users', 'Discounts', 'Sales Dashboard'];
+const upcoming = ['Discounts', 'Sales Dashboard'];
 
 export default function AdminLayout({ children, title = 'Admin' }) {
     const { auth } = usePage().props;

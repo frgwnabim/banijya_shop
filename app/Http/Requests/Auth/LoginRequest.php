@@ -50,6 +50,14 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        if (! $this->user()->is_active) {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'email' => 'Akun kamu telah dinonaktifkan.',
+            ]);
+        }
+
         RateLimiter::clear($this->throttleKey());
     }
 

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Cart;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\StockMovement;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -72,13 +73,13 @@ class OrderService
         });
     }
 
-    public function updateStatus(Order $order, string $newStatus): Order
+    public function updateStatus(Order $order, string $newStatus, ?string $note = null): Order
     {
         if (! in_array($newStatus, self::STATUSES, true)) {
             throw new RuntimeException("Status order tidak valid: {$newStatus}.");
         }
 
-        return DB::transaction(function () use ($order, $newStatus) {
+        return DB::transaction(function () use ($order, $newStatus, $note) {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             $currentIndex = array_search($lockedOrder->status, self::STATUSES, true);
             $newIndex = array_search($newStatus, self::STATUSES, true);
@@ -94,11 +95,27 @@ class OrderService
             $lockedOrder->update(['status' => $newStatus]);
             $lockedOrder->statusHistories()->create([
                 'status' => $newStatus,
-                'note' => $newStatus === 'paid' ? 'Pembayaran disimulasikan berhasil.' : null,
+                'note' => $note ?? ($newStatus === 'paid' ? 'Pembayaran disimulasikan berhasil.' : null),
             ]);
 
             return $lockedOrder->fresh(['items.product', 'statusHistories']);
         });
+    }
+
+    public static function statuses(): array
+    {
+        return self::STATUSES;
+    }
+
+    public function nextStatus(string $status): ?string
+    {
+        $index = array_search($status, self::STATUSES, true);
+
+        if ($index === false || $index === count(self::STATUSES) - 1) {
+            return null;
+        }
+
+        return self::STATUSES[$index + 1];
     }
 
     private function deductStock(Order $order): void
@@ -121,7 +138,21 @@ class OrderService
         }
 
         foreach ($items as $item) {
-            $products[$item->product_id]->decrement('stock', $item->quantity);
+            $product = $products[$item->product_id];
+            $stockBefore = $product->stock;
+            $stockAfter = $stockBefore - $item->quantity;
+
+            $product->decrement('stock', $item->quantity);
+
+            StockMovement::create([
+                'product_id' => $product->id,
+                'user_id' => null,
+                'type' => 'sale',
+                'quantity_change' => -$item->quantity,
+                'stock_before' => $stockBefore,
+                'stock_after' => $stockAfter,
+                'note' => "Pengurangan stok otomatis dari pesanan {$order->order_number}.",
+            ]);
         }
     }
 
