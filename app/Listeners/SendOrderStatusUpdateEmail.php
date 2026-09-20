@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Mail;
 
 class SendOrderStatusUpdateEmail implements ShouldQueue
 {
+    public int $tries = 3;
+
     public function handle(OrderStatusUpdated $event): void
     {
         Mail::to($event->order->user->email)->send(

@@ -5,16 +5,20 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AdminProductRequest;
 use App\Models\Product;
+use App\Services\ProductImageUploadService;
 use App\Support\CacheKeys;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ProductController extends Controller
 {
+    public function __construct(private readonly ProductImageUploadService $imageUploadService)
+    {
+    }
+
     public function index(Request $request): Response
     {
         $search = trim((string) $request->query('search', ''));
@@ -49,8 +53,9 @@ class ProductController extends Controller
         unset($data['image']);
 
         if ($request->hasFile('image')) {
-            $storedPath = $request->file('image')->store('products', 'public');
-            $data['image_path'] = '/storage/'.$storedPath;
+            $uploaded = $this->imageUploadService->upload($request->file('image'));
+            $data['image_path'] = $uploaded['image_path'];
+            $data['thumbnail_path'] = $uploaded['thumbnail_path'];
         }
 
         Product::create($data);
@@ -82,9 +87,10 @@ class ProductController extends Controller
         $previousSlug = $product->slug;
 
         if ($request->hasFile('image')) {
-            $this->deleteStoredImage($product->image_path);
-            $storedPath = $request->file('image')->store('products', 'public');
-            $data['image_path'] = '/storage/'.$storedPath;
+            $this->imageUploadService->delete($product->getRawOriginal('image_path'), $product->getRawOriginal('thumbnail_path'));
+            $uploaded = $this->imageUploadService->upload($request->file('image'));
+            $data['image_path'] = $uploaded['image_path'];
+            $data['thumbnail_path'] = $uploaded['thumbnail_path'];
         }
 
         $product->update($data);
@@ -98,6 +104,7 @@ class ProductController extends Controller
 
     public function destroy(Product $product): RedirectResponse
     {
+        $this->imageUploadService->delete($product->getRawOriginal('image_path'), $product->getRawOriginal('thumbnail_path'));
         $product->delete();
 
         CacheKeys::flushProducts();
@@ -130,12 +137,5 @@ class ProductController extends Controller
         }
 
         return $sku;
-    }
-
-    private function deleteStoredImage(?string $imagePath): void
-    {
-        if ($imagePath && str_contains($imagePath, '/storage/')) {
-            Storage::disk('public')->delete(Str::after($imagePath, '/storage/'));
-        }
     }
 }

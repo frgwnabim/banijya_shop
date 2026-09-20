@@ -6,9 +6,11 @@ use App\Models\Order;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Storage;
 
 class OrderConfirmationMail extends Mailable implements ShouldQueue
 {
@@ -32,5 +34,21 @@ class OrderConfirmationMail extends Mailable implements ShouldQueue
             markdown: 'emails.orders.confirmation',
             with: ['order' => $this->order],
         );
+    }
+
+    /**
+     * @return array<int, Attachment>
+     */
+    public function attachments(): array
+    {
+        if (! $this->order->invoice_path || ! Storage::disk('local')->exists($this->order->invoice_path)) {
+            return [];
+        }
+
+        return [
+            Attachment::fromStorage($this->order->invoice_path)
+                ->as("Invoice-{$this->order->order_number}.pdf")
+                ->withMime('application/pdf'),
+        ];
     }
 }

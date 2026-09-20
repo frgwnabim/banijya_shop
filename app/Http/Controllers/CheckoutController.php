@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Events\OrderCreated;
 use App\Http\Requests\CheckoutRequest;
+use App\Jobs\GenerateOrderInvoiceJob;
 use App\Models\Order;
 use App\Services\OrderService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -52,7 +54,11 @@ class CheckoutController extends Controller
 
         $order = $this->orderService->createFromCart($request->user(), $data, $discountCode);
 
-        event(new OrderCreated($order));
+        // Invoice must be generated before the confirmation email is composed so it can be attached.
+        Bus::chain([
+            new GenerateOrderInvoiceJob($order),
+            fn () => event(new OrderCreated($order->fresh())),
+        ])->dispatch();
 
         return redirect()->route('checkout.success', $order)->with('success', 'Pesanan berhasil dibuat.');
     }

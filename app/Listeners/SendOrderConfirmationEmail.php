@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Mail;
 
 class SendOrderConfirmationEmail implements ShouldQueue
 {
+    public int $tries = 3;
+
     public function handle(OrderCreated $event): void
     {
         Mail::to($event->order->user->email)->send(new OrderConfirmationMail($event->order));

@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ReviewRequest;
+use App\Jobs\RecalculateProductRatingJob;
 use App\Models\Product;
 use App\Models\Review;
-use App\Support\CacheKeys;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Database\QueryException;
@@ -39,7 +39,7 @@ class ReviewController extends Controller
             throw $exception;
         }
 
-        CacheKeys::forgetProductDetail($product->slug);
+        RecalculateProductRatingJob::dispatch($product->id);
 
         return back()->with('success', 'Ulasan berhasil ditambahkan.');
     }
@@ -49,7 +49,7 @@ class ReviewController extends Controller
         $this->ensureOwnership($request, $review);
         $review->update($request->validated());
 
-        CacheKeys::forgetProductDetail($review->product->slug);
+        RecalculateProductRatingJob::dispatch($review->product_id);
 
         return back()->with('success', 'Ulasan berhasil diperbarui.');
     }
@@ -57,10 +57,10 @@ class ReviewController extends Controller
     public function destroy(Request $request, Review $review): RedirectResponse
     {
         $this->ensureOwnership($request, $review);
-        $productSlug = $review->product->slug;
+        $productId = $review->product_id;
         $review->delete();
 
-        CacheKeys::forgetProductDetail($productSlug);
+        RecalculateProductRatingJob::dispatch($productId);
 
         return back()->with('success', 'Ulasan berhasil dihapus.');
     }

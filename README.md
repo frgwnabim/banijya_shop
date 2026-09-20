@@ -10,6 +10,7 @@ Fondasi aplikasi e-commerce full-stack. Project ini berisi Laravel dengan React 
 - Vite + Tailwind CSS
 - PostgreSQL
 - Redis melalui `predis/predis`
+- MinIO (S3-compatible object storage, untuk gambar produk)
 - Laravel Breeze (Inertia + React)
 
 ## Instalasi
@@ -37,6 +38,67 @@ npm run dev
 ```
 
 Buka `http://localhost:8000`. Halaman login dan register tersedia melalui route Breeze.
+
+## Queue worker & scheduler (background jobs)
+
+Email notification (order confirmation, status update, welcome, low stock alert) dan job
+background (invoice PDF, recalculate rating, cleanup cart kadaluarsa) diproses lewat Redis
+queue (`QUEUE_CONNECTION=redis`). Redis dipakai untuk dua keperluan berbeda dengan index
+database terpisah supaya tidak saling bentrok:
+
+- **Queue** → koneksi Redis `default`, `REDIS_DB=0` (lihat `REDIS_QUEUE_CONNECTION=default` di `.env`).
+- **Cache** → koneksi Redis `cache`, `REDIS_CACHE_DB=1` (lihat `REDIS_CACHE_DB` di `.env`).
+
+Job-job dikelompokkan ke beberapa queue name agar mudah diprioritaskan:
+
+- `default` — event listener notifikasi email (order confirmation, status update, welcome, low stock) dan `RecalculateProductRatingJob`.
+- `invoices` — `GenerateOrderInvoiceJob` (generate PDF invoice).
+- `maintenance` — `CleanupExpiredCartsJob` (cleanup cart abandoned, dijadwalkan harian).
+
+Jalankan worker di terminal terpisah selama development:
+
+```bash
+php artisan queue:work redis --queue=default,invoices,maintenance --tries=3
+```
+
+Jalankan scheduler (untuk `CleanupExpiredCartsJob` yang jalan harian jam 02:00) dengan:
+
+```bash
+php artisan schedule:work
+```
+
+Job yang gagal setelah 3 kali percobaan akan masuk ke tabel `failed_jobs`. Lihat daftarnya
+dengan `php artisan queue:failed`, retry dengan `php artisan queue:retry all`, atau hapus
+dengan `php artisan queue:flush`.
+
+## Cloud storage untuk gambar produk (MinIO)
+
+Upload gambar produk (Admin > Produk) disimpan di disk `product_images`, sebuah disk S3-compatible
+(`config/filesystems.php`), bukan lagi di `storage/app/public`. Untuk development lokal dipakai
+**MinIO** (self-hosted S3-compatible, jalan via Docker, gratis, tidak perlu akun/API token
+eksternal seperti Cloudflare R2) — pilihan ini paling cepat untuk setup lokal tanpa dependensi
+jaringan luar.
+
+Jalankan MinIO lokal via Docker:
+
+```bash
+docker run -d --name banijya-minio -p 9000:9000 -p 9001:9001 \
+  -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+  minio/minio server /data --console-address ":9001"
+```
+
+Lalu buka `http://127.0.0.1:9001` (login `minioadmin`/`minioadmin`) dan buat bucket bernama
+`banijya-product-images` (harus cocok dengan `AWS_BUCKET` di `.env`). Nilai default di
+`.env`/`.env.example` (`AWS_ENDPOINT=http://127.0.0.1:9000`, `AWS_USE_PATH_STYLE_ENDPOINT=true`,
+kredensial `minioadmin`/`minioadmin`) sudah cocok dengan perintah Docker di atas — tidak perlu
+diubah untuk development lokal.
+
+Untuk production, ganti nilai `AWS_*` dengan kredensial Cloudflare R2 (atau AWS S3 asli) —
+kode aplikasi tidak perlu berubah karena semuanya lewat konfigurasi `.env`.
+
+Resize/compress gambar otomatis (max width 1200px untuk gambar utama, 300px untuk thumbnail
+listing, tanpa upscale gambar kecil) memakai `intervention/image` dengan driver GD. Pastikan
+extension `gd` aktif di `php.ini` (`extension=gd`, tidak dikomentari).
 
 ## Struktur utama
 

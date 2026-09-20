@@ -415,8 +415,8 @@ export default function Index({
                                     <div className="relative">
                                         <Link href={route('products.show', product.slug)} aria-label={`${product.name}, detail produk segera tersedia`}>
                                             <div className="aspect-[4/3] overflow-hidden bg-slate-100">
-                                                {product.image_path ? (
-                                                    <img src={product.image_path} alt={product.name} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                                                {product.thumbnail_path || product.image_path ? (
+                                                    <img src={product.thumbnail_path || product.image_path} alt={product.name} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" loading="lazy" />
                                                 ) : (
                                                     <div className="flex h-full items-center justify-center bg-gradient-to-br from-amber-100 via-orange-50 to-slate-100 text-sm font-medium text-amber-800">Banijya Shop</div>
                                                 )}

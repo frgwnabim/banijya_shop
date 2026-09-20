@@ -12,7 +12,7 @@ class Order extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['user_id', 'order_number', 'status', 'total_amount', 'discount_id', 'discount_amount', 'shipping_address'];
+    protected $fillable = ['user_id', 'order_number', 'status', 'total_amount', 'discount_id', 'discount_amount', 'shipping_address', 'invoice_path'];
 
     protected function casts(): array
     {

@@ -60,6 +60,24 @@ return [
             'report' => false,
         ],
 
+        // S3-compatible disk (MinIO for local dev, or Cloudflare R2/AWS S3 in production)
+        // dedicated to product images so it can be swapped independently of the app's
+        // default disk (session/cache-adjacent files stay on 'local'/'public').
+        'product_images' => [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION'),
+            'bucket' => env('AWS_BUCKET'),
+            'url' => env('AWS_URL'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'root' => 'products',
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
     ],
 
     /*

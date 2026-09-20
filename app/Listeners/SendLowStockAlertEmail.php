@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Mail;
 
 class SendLowStockAlertEmail implements ShouldQueue
 {
+    public int $tries = 3;
+
     public function handle(StockRunningLow $event): void
     {
         $threshold = config('inventory.low_stock_threshold');
