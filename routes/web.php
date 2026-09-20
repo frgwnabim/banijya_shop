@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\CategoryController as AdminCategoryController;
+use App\Http\Controllers\Admin\DiscountController as AdminDiscountController;
 use App\Http\Controllers\Admin\InventoryController as AdminInventoryController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController as AdminProductController;
@@ -50,6 +51,7 @@ Route::middleware(['wishlist.intended', 'auth'])->group(function () {
 Route::middleware('auth')->group(function () {
     Route::get('/checkout', [CheckoutController::class, 'create'])->name('checkout.create');
     Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+    Route::post('/checkout/apply-discount', [CheckoutController::class, 'applyDiscount'])->name('checkout.apply-discount');
     Route::get('/checkout/{order}/success', [CheckoutController::class, 'showConfirmation'])->name('checkout.success');
     Route::post('/orders/{order}/simulate-payment', [CheckoutController::class, 'simulatePayment'])->name('orders.simulate-payment');
     Route::get('/orders', [OrderController::class, 'index'])->name('orders.index');
@@ -73,6 +75,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:admin'])->grou
     Route::get('/users/{user}', [AdminUserController::class, 'show'])->name('users.show');
     Route::patch('/users/{user}', [AdminUserController::class, 'update'])->name('users.update');
     Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
+    Route::resource('discounts', AdminDiscountController::class)->except(['show']);
 });
 
 Route::middleware('auth')->group(function () {

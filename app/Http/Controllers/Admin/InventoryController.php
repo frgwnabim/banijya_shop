@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\InventoryAdjustRequest;
 use App\Models\Product;
 use App\Models\StockMovement;
+use App\Services\StockAlertService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -70,6 +71,9 @@ class InventoryController extends Controller
                 'note' => $data['note'],
             ]);
         });
+
+        // Evaluated after commit so the queued alert job never races the transaction.
+        StockAlertService::evaluate($product->fresh());
 
         return back()->with('success', 'Stok berhasil disesuaikan.');
     }

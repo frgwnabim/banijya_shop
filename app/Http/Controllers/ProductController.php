@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use Illuminate\Http\Request;
-use App\Models\Category;
+use App\Support\CacheKeys;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -29,35 +29,53 @@ class ProductController extends Controller
             'name_desc',
         ], true) ? $request->query('sort') : 'newest';
 
-        $products = Product::query()
-            ->with('category')
-            ->where('status', 'active')
-            ->when($categoryIds->isNotEmpty(), fn ($query) => $query->whereIn('category_id', $categoryIds))
-            ->when($minPrice !== null, fn ($query) => $query->where('price', '>=', $minPrice))
-            ->when($maxPrice !== null, fn ($query) => $query->where('price', '<=', $maxPrice))
-            ->when($inStock, fn ($query) => $query->where('stock', '>', 0))
-            ->when($search !== '', function ($query) use ($search) {
-                $term = "%{$search}%";
+        $cacheParams = [
+            'search' => $search,
+            'category' => $categoryIds->all(),
+            'min_price' => $minPrice,
+            'max_price' => $maxPrice,
+            'in_stock' => $inStock,
+            'sort' => $sort,
+            'page' => (int) $request->query('page', 1),
+        ];
 
-                $query->where(function ($query) use ($term) {
-                    $query->where('name', 'ILIKE', $term)
-                        ->orWhere('description', 'ILIKE', $term);
-                });
-            })
-            ->when($sort === 'price_asc', fn ($query) => $query->orderBy('price'))
-            ->when($sort === 'price_desc', fn ($query) => $query->orderByDesc('price'))
-            ->when($sort === 'name_asc', fn ($query) => $query->orderBy('name'))
-            ->when($sort === 'name_desc', fn ($query) => $query->orderByDesc('name'))
-            ->when($sort === 'newest', fn ($query) => $query->orderByDesc('created_at'))
-            ->paginate(12)
-            ->withQueryString();
+        $products = CacheKeys::remember(
+            CacheKeys::productListingKey($cacheParams),
+            CacheKeys::TTL_PRODUCT_LISTING,
+            fn () => Product::query()
+                ->with('category')
+                ->where('status', 'active')
+                ->when($categoryIds->isNotEmpty(), fn ($query) => $query->whereIn('category_id', $categoryIds))
+                ->when($minPrice !== null, fn ($query) => $query->where('price', '>=', $minPrice))
+                ->when($maxPrice !== null, fn ($query) => $query->where('price', '<=', $maxPrice))
+                ->when($inStock, fn ($query) => $query->where('stock', '>', 0))
+                ->when($search !== '', function ($query) use ($search) {
+                    $term = "%{$search}%";
+
+                    $query->where(function ($query) use ($term) {
+                        $query->where('name', 'ILIKE', $term)
+                            ->orWhere('description', 'ILIKE', $term);
+                    });
+                })
+                ->when($sort === 'price_asc', fn ($query) => $query->orderBy('price'))
+                ->when($sort === 'price_desc', fn ($query) => $query->orderByDesc('price'))
+                ->when($sort === 'name_asc', fn ($query) => $query->orderBy('name'))
+                ->when($sort === 'name_desc', fn ($query) => $query->orderByDesc('name'))
+                ->when($sort === 'newest', fn ($query) => $query->orderByDesc('created_at'))
+                ->paginate(12)
+                ->withQueryString(),
+            CacheKeys::PRODUCTS_TAG,
+        );
 
         return Inertia::render('Products/Index', [
             'products' => $products,
             'wishlistedProductIds' => $request->user()?->wishlists()->pluck('product_id')->values() ?? [],
             'search' => $search,
             'sort' => $sort,
-            'categories' => Category::query()->orderBy('name')->get(['id', 'name']),
+            'categories' => CacheKeys::categories()->map(fn ($category) => [
+                'id' => $category->id,
+                'name' => $category->name,
+            ])->values(),
             'filters' => [
                 'category' => $categoryIds->all(),
                 'min_price' => $minPrice,
@@ -71,9 +89,16 @@ class ProductController extends Controller
     {
         abort_unless($product->status === 'active', 404);
 
-        $product->load(['category', 'images'])
-            ->loadAvg('reviews', 'rating')
-            ->loadCount('reviews');
+        $cachedProduct = CacheKeys::remember(
+            CacheKeys::productDetailKey($product->slug),
+            CacheKeys::TTL_PRODUCT_DETAIL,
+            fn () => $product->fresh(['category', 'images'])
+                ->loadAvg('reviews', 'rating')
+                ->loadCount('reviews'),
+        );
+        $product->setRelations($cachedProduct->getRelations());
+        $product->setAttribute('reviews_avg_rating', $cachedProduct->reviews_avg_rating);
+        $product->setAttribute('reviews_count', $cachedProduct->reviews_count);
 
         $productReviews = $product->reviews()
             ->with('user:id,name')

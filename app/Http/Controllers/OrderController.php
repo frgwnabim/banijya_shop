@@ -35,6 +35,7 @@ class OrderController extends Controller
         abort_unless($order->user_id === $request->user()->id, 403);
 
         $order->load([
+            'discount:id,code',
             'items.product',
             'statusHistories' => fn ($query) => $query->orderBy('changed_at'),
         ]);
@@ -59,6 +60,8 @@ class OrderController extends Controller
                 'order_number' => $order->order_number,
                 'status' => $order->status,
                 'total_amount' => (float) $order->total_amount,
+                'discount_amount' => (float) $order->discount_amount,
+                'discount_code' => $order->discount?->code,
                 'shipping_address' => $order->shipping_address,
                 'created_at' => $order->created_at?->toISOString(),
                 'items' => $order->items->map(fn ($item) => [

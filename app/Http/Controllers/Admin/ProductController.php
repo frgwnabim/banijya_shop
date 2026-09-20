@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AdminProductRequest;
-use App\Models\Category;
 use App\Models\Product;
+use App\Support\CacheKeys;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -33,7 +33,11 @@ class ProductController extends Controller
     public function create(): Response
     {
         return Inertia::render('Admin/Products/Create', [
-            'categories' => Category::orderBy('name')->get(['id', 'name', 'parent_id']),
+            'categories' => CacheKeys::categories()->map(fn ($category) => [
+                'id' => $category->id,
+                'name' => $category->name,
+                'parent_id' => $category->parent_id,
+            ])->values(),
         ]);
     }
 
@@ -51,6 +55,8 @@ class ProductController extends Controller
 
         Product::create($data);
 
+        CacheKeys::flushProducts();
+
         return redirect()->route('admin.products.index')->with('success', 'Produk berhasil ditambahkan.');
     }
 
@@ -58,7 +64,11 @@ class ProductController extends Controller
     {
         return Inertia::render('Admin/Products/Edit', [
             'product' => $product,
-            'categories' => Category::orderBy('name')->get(['id', 'name', 'parent_id']),
+            'categories' => CacheKeys::categories()->map(fn ($category) => [
+                'id' => $category->id,
+                'name' => $category->name,
+                'parent_id' => $category->parent_id,
+            ])->values(),
         ]);
     }
 
@@ -69,6 +79,8 @@ class ProductController extends Controller
         $data['sku'] = $data['sku'] ?? $product->sku;
         unset($data['image']);
 
+        $previousSlug = $product->slug;
+
         if ($request->hasFile('image')) {
             $this->deleteStoredImage($product->image_path);
             $storedPath = $request->file('image')->store('products', 'public');
@@ -77,12 +89,19 @@ class ProductController extends Controller
 
         $product->update($data);
 
+        CacheKeys::flushProducts();
+        CacheKeys::forgetProductDetail($previousSlug);
+        CacheKeys::forgetProductDetail($product->slug);
+
         return redirect()->route('admin.products.index')->with('success', 'Produk berhasil diperbarui.');
     }
 
     public function destroy(Product $product): RedirectResponse
     {
         $product->delete();
+
+        CacheKeys::flushProducts();
+        CacheKeys::forgetProductDetail($product->slug);
 
         return back()->with('success', 'Produk dihapus secara aman dan tidak akan tampil di area customer.');
     }

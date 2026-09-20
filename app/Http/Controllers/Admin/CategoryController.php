@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AdminCategoryRequest;
 use App\Models\Category;
+use App\Support\CacheKeys;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Str;
@@ -23,7 +24,10 @@ class CategoryController extends Controller
     public function create(): Response
     {
         return Inertia::render('Admin/Categories/Create', [
-            'categories' => Category::orderBy('name')->get(['id', 'name']),
+            'categories' => CacheKeys::categories()->map(fn ($category) => [
+                'id' => $category->id,
+                'name' => $category->name,
+            ])->values(),
         ]);
     }
 
@@ -33,6 +37,8 @@ class CategoryController extends Controller
         $data['slug'] = $this->uniqueSlug($data['name']);
         Category::create($data);
 
+        CacheKeys::flushCategories();
+
         return redirect()->route('admin.categories.index')->with('success', 'Kategori berhasil ditambahkan.');
     }
 
@@ -40,7 +46,10 @@ class CategoryController extends Controller
     {
         return Inertia::render('Admin/Categories/Edit', [
             'category' => $category,
-            'categories' => Category::where('id', '!=', $category->id)->orderBy('name')->get(['id', 'name']),
+            'categories' => CacheKeys::categories()
+                ->reject(fn ($item) => $item->id === $category->id)
+                ->map(fn ($item) => ['id' => $item->id, 'name' => $item->name])
+                ->values(),
         ]);
     }
 
@@ -49,6 +58,8 @@ class CategoryController extends Controller
         $data = $request->validated();
         $data['slug'] = $this->uniqueSlug($data['name'], $category);
         $category->update($data);
+
+        CacheKeys::flushCategories();
 
         return redirect()->route('admin.categories.index')->with('success', 'Kategori berhasil diperbarui.');
     }
@@ -64,6 +75,8 @@ class CategoryController extends Controller
         } catch (QueryException) {
             return back()->with('error', 'Kategori tidak dapat dihapus karena masih digunakan.');
         }
+
+        CacheKeys::flushCategories();
 
         return back()->with('success', 'Kategori berhasil dihapus.');
     }

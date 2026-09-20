@@ -8,9 +8,10 @@ const links = [
     { label: 'Inventory', routeName: 'admin.inventory.index', active: 'admin.inventory.*' },
     { label: 'Orders', routeName: 'admin.orders.index', active: 'admin.orders.*' },
     { label: 'Users', routeName: 'admin.users.index', active: 'admin.users.*' },
+    { label: 'Discounts', routeName: 'admin.discounts.index', active: 'admin.discounts.*' },
 ];
 
-const upcoming = ['Discounts', 'Sales Dashboard'];
+const upcoming = ['Sales Dashboard'];
 
 export default function AdminLayout({ children, title = 'Admin' }) {
     const { auth } = usePage().props;

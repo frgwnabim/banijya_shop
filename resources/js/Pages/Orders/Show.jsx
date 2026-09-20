@@ -80,6 +80,12 @@ export default function Show({ order, timeline = [] }) {
                             <h2 className="text-lg font-semibold text-slate-900">Ringkasan</h2>
                             <p className="mt-5 text-sm font-semibold text-slate-700">Alamat pengiriman</p>
                             <p className="mt-2 whitespace-pre-line text-sm leading-6 text-slate-600">{order.shipping_address}</p>
+                            {order.discount_code && (
+                                <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4 text-sm">
+                                    <span className="font-medium text-slate-600">Diskon ({order.discount_code})</span>
+                                    <span className="font-semibold text-emerald-700">-{formatRupiah(order.discount_amount)}</span>
+                                </div>
+                            )}
                             <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-4"><span className="font-medium text-slate-600">Total</span><span className="text-lg font-semibold text-slate-950">{formatRupiah(order.total_amount)}</span></div>
                         </aside>
                     </div>

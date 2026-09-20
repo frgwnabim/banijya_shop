@@ -17,6 +17,7 @@ class CheckoutRequest extends FormRequest
             'recipient_name' => ['required', 'string', 'max:255'],
             'shipping_address' => ['required', 'string', 'max:2000'],
             'phone' => ['required', 'string', 'max:30'],
+            'discount_code' => ['nullable', 'string', 'max:50'],
         ];
     }
 }

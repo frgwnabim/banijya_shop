@@ -2,7 +2,10 @@
 
 namespace App\Services;
 
+use App\Events\OrderStatusUpdated;
 use App\Models\Cart;
+use App\Models\Discount;
+use App\Models\DiscountUsage;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\StockMovement;
@@ -15,9 +18,9 @@ class OrderService
 {
     private const STATUSES = ['pending', 'paid', 'processing', 'shipped', 'delivered'];
 
-    public function createFromCart(User $user, array $shippingAddress): Order
+    public function createFromCart(User $user, array $shippingAddress, ?string $discountCode = null): Order
     {
-        return DB::transaction(function () use ($user, $shippingAddress) {
+        return DB::transaction(function () use ($user, $shippingAddress, $discountCode) {
             $cart = $user->cart()->with('items.product')->lockForUpdate()->first();
 
             if (! $cart || $cart->items->isEmpty()) {
@@ -46,10 +49,22 @@ class OrderService
                 throw ValidationException::withMessages($stockErrors);
             }
 
+            $subtotal = (float) $cart->items->sum(fn ($item) => (float) $item->price_snapshot * $item->quantity);
+
+            $discount = null;
+            $discountAmount = 0.0;
+
+            if ($discountCode) {
+                $discount = $this->validateDiscount($discountCode, $user, $subtotal);
+                $discountAmount = $this->calculateDiscountAmount($discount, $subtotal);
+            }
+
             $order = $user->orders()->create([
                 'order_number' => $this->generateOrderNumber(),
                 'status' => 'pending',
-                'total_amount' => $cart->items->sum(fn ($item) => (float) $item->price_snapshot * $item->quantity),
+                'total_amount' => max(0, $subtotal - $discountAmount),
+                'discount_id' => $discount?->id,
+                'discount_amount' => $discountAmount,
                 'shipping_address' => $this->formatShippingAddress($shippingAddress),
             ]);
 
@@ -59,6 +74,14 @@ class OrderService
                     'quantity' => $cartItem->quantity,
                     'price_snapshot' => $cartItem->price_snapshot,
                     'subtotal' => (float) $cartItem->price_snapshot * $cartItem->quantity,
+                ]);
+            }
+
+            if ($discount) {
+                $order->discountUsage()->create([
+                    'discount_id' => $discount->id,
+                    'user_id' => $user->id,
+                    'used_at' => now(),
                 ]);
             }
 
@@ -79,7 +102,9 @@ class OrderService
             throw new RuntimeException("Status order tidak valid: {$newStatus}.");
         }
 
-        return DB::transaction(function () use ($order, $newStatus, $note) {
+        $previousStatus = $order->status;
+
+        $updatedOrder = DB::transaction(function () use ($order, $newStatus, $note) {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             $currentIndex = array_search($lockedOrder->status, self::STATUSES, true);
             $newIndex = array_search($newStatus, self::STATUSES, true);
@@ -100,6 +125,16 @@ class OrderService
 
             return $lockedOrder->fresh(['items.product', 'statusHistories']);
         });
+
+        // Notification is a side effect of the (already committed) status change, not a condition for it.
+        event(new OrderStatusUpdated($updatedOrder, $previousStatus, $newStatus, $note));
+
+        if ($newStatus === 'paid') {
+            // Checked after commit so queued low-stock alert jobs never race the transaction.
+            $updatedOrder->items->each(fn ($item) => StockAlertService::evaluate($item->product->fresh()));
+        }
+
+        return $updatedOrder;
     }
 
     public static function statuses(): array
@@ -116,6 +151,44 @@ class OrderService
         }
 
         return self::STATUSES[$index + 1];
+    }
+
+    public function validateDiscount(string $code, User $user, float $subtotal): Discount
+    {
+        $discount = Discount::where('code', strtoupper(trim($code)))->first();
+
+        if (! $discount) {
+            throw ValidationException::withMessages(['code' => 'Kode diskon tidak ditemukan.']);
+        }
+
+        if (! $discount->is_active) {
+            throw ValidationException::withMessages(['code' => 'Kode diskon sudah tidak aktif.']);
+        }
+
+        $now = now();
+        if ($now->lt($discount->starts_at) || $now->gt($discount->expires_at)) {
+            throw ValidationException::withMessages(['code' => 'Kode diskon sudah tidak berlaku di luar periode aktifnya.']);
+        }
+
+        if ($discount->min_purchase !== null && $subtotal < (float) $discount->min_purchase) {
+            $minPurchase = number_format((float) $discount->min_purchase, 0, ',', '.');
+            throw ValidationException::withMessages(['code' => "Minimal belanja untuk kode ini adalah Rp{$minPurchase}."]);
+        }
+
+        if (DiscountUsage::where('discount_id', $discount->id)->where('user_id', $user->id)->exists()) {
+            throw ValidationException::withMessages(['code' => 'Kamu sudah pernah menggunakan kode diskon ini.']);
+        }
+
+        return $discount;
+    }
+
+    public function calculateDiscountAmount(Discount $discount, float $subtotal): float
+    {
+        $amount = $discount->type === 'percentage'
+            ? $subtotal * ((float) $discount->value / 100)
+            : (float) $discount->value;
+
+        return round(min(max($amount, 0), $subtotal), 2);
     }
 
     private function deductStock(Order $order): void

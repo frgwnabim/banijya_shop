@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\OrderCreated;
 use App\Http\Requests\CheckoutRequest;
 use App\Models\Order;
 use App\Services\OrderService;
@@ -45,9 +46,31 @@ class CheckoutController extends Controller
 
     public function store(CheckoutRequest $request): RedirectResponse
     {
-        $order = $this->orderService->createFromCart($request->user(), $request->validated());
+        $data = $request->validated();
+        $discountCode = $data['discount_code'] ?? null;
+        unset($data['discount_code']);
+
+        $order = $this->orderService->createFromCart($request->user(), $data, $discountCode);
+
+        event(new OrderCreated($order));
 
         return redirect()->route('checkout.success', $order)->with('success', 'Pesanan berhasil dibuat.');
+    }
+
+    public function applyDiscount(Request $request): RedirectResponse
+    {
+        $request->validate(['code' => ['required', 'string', 'max:50']]);
+
+        $cart = $request->user()->cart()->with('items')->first();
+        $subtotal = $cart ? (float) $cart->items->sum(fn ($item) => (float) $item->price_snapshot * $item->quantity) : 0.0;
+
+        $discount = $this->orderService->validateDiscount($request->string('code')->toString(), $request->user(), $subtotal);
+        $discountAmount = $this->orderService->calculateDiscountAmount($discount, $subtotal);
+
+        return back()->with('success', "Kode diskon {$discount->code} berhasil diterapkan.")->with('discount', [
+            'code' => $discount->code,
+            'amount' => $discountAmount,
+        ]);
     }
 
     public function showConfirmation(Request $request, Order $order): Response
