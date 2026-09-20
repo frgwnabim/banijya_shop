@@ -21,6 +21,14 @@ if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
     php artisan migrate --force
 fi
 
-# Hand off to the process this service was started with (web/worker/scheduler
-# CMD, or a Railway "Custom Start Command" override).
+# Hand off to the process this service was started with. If no CMD/Custom
+# Start Command was provided, default to `php artisan serve`, expanding
+# $PORT natively in THIS shell — never via a quoted string passed through
+# Docker CMD arrays or Railway's startCommand, since nested shell-quoting
+# across those layers is what silently left "${PORT:-8080}" unexpanded
+# and made ServeCommand receive it as a literal string.
+if [ "$#" -eq 0 ]; then
+    exec php artisan serve --host=0.0.0.0 --port="${PORT:-8080}"
+fi
+
 exec "$@"

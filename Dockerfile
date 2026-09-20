@@ -96,5 +96,7 @@ USER www-data
 # Railway assigns $PORT dynamically at runtime — not known at build time.
 EXPOSE 8080
 
+# No CMD args by default: start-container.sh expands $PORT itself and runs
+# `php artisan serve` when it receives zero arguments (see script for why).
 ENTRYPOINT ["start-container.sh"]
-CMD ["sh", "-c", "php artisan serve --host=0.0.0.0 --port=${PORT:-8080}"]
+CMD []
