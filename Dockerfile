@@ -12,7 +12,10 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY resources/ resources/
-COPY vite.config.js jsconfig.json ./
+# tailwind.config.js content-path scanning + postcss.config.js MUST be present
+# at build time, otherwise Tailwind silently falls back to an unconfigured
+# default (no content paths) and emits an almost-empty CSS file.
+COPY vite.config.js jsconfig.json tailwind.config.js postcss.config.js ./
 COPY public/ public/
 RUN npm run build
 
