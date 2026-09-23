@@ -1,10 +1,10 @@
+import { toast } from '@/Components/Toaster';
 import { router } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 
 export default function WishlistButton({ productId, isWishlisted = false, className = '' }) {
     const [active, setActive] = useState(isWishlisted);
     const [isBusy, setIsBusy] = useState(false);
-    const [feedback, setFeedback] = useState('');
 
     useEffect(() => {
         setActive(isWishlisted);
@@ -16,18 +16,22 @@ export default function WishlistButton({ productId, isWishlisted = false, classN
             return_to: `${window.location.pathname}${window.location.search}`,
         }, {
             preserveScroll: true,
-            onSuccess: () => {
+            onSuccess: (page) => {
+                // Tamu diarahkan ke halaman login, jadi jangan tampilkan notifikasi.
+                if (!page.props.auth?.user) {
+                    return;
+                }
+
                 const nextActive = !active;
                 setActive(nextActive);
-                setFeedback(nextActive ? 'Ditambahkan ke wishlist' : 'Dihapus dari wishlist');
-                window.setTimeout(() => setFeedback(''), 2200);
+                toast(nextActive ? 'Ditambahkan ke wishlist' : 'Dihapus dari wishlist');
             },
             onFinish: () => setIsBusy(false),
         });
     };
 
     return (
-        <span className="relative inline-flex">
+        <span className="inline-flex">
             <button
                 type="button"
                 onClick={toggle}
@@ -40,11 +44,6 @@ export default function WishlistButton({ productId, isWishlisted = false, classN
                     <path strokeLinecap="round" strokeLinejoin="round" d="M20.8 8.7c0 5.1-8.8 10-8.8 10s-8.8-4.9-8.8-10A4.7 4.7 0 0 1 12 6a4.7 4.7 0 0 1 8.8 2.7Z" />
                 </svg>
             </button>
-            {feedback && (
-                <span className="absolute right-0 top-full z-10 mt-2 whitespace-nowrap rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white shadow-lg" role="status">
-                    {feedback}
-                </span>
-            )}
         </span>
     );
 }

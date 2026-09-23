@@ -1,3 +1,4 @@
+import BackButton from '@/Components/BackButton';
 import { Link } from '@inertiajs/react';
 
 export default function GuestLayout({ children }) {
@@ -9,7 +10,11 @@ export default function GuestLayout({ children }) {
                 </Link>
             </div>
 
-            <div className="mt-6 w-full overflow-hidden bg-white px-6 py-4 shadow-md sm:max-w-md sm:rounded-lg">
+            <div className="mt-6 w-full px-6 sm:max-w-md sm:px-0">
+                <BackButton fallback="/" />
+            </div>
+
+            <div className="mt-3 w-full overflow-hidden bg-white px-6 py-4 shadow-md sm:max-w-md sm:rounded-lg">
                 {children}
             </div>
         </div>

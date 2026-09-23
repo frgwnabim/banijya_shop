@@ -1,4 +1,5 @@
 import ApplicationLogo from '@/Components/ApplicationLogo';
+import BackButton from '@/Components/BackButton';
 import { Head, Link, usePage } from '@inertiajs/react';
 
 const links = [
@@ -44,7 +45,12 @@ export default function AdminLayout({ children, title = 'Admin' }) {
                         <Link href={route('products.index')} className="mt-2 block text-xs text-slate-400 hover:text-amber-400">Lihat toko customer</Link>
                     </div>
                 </aside>
-                <main className="min-w-0 flex-1">{children}</main>
+                <main className="min-w-0 flex-1">
+                    <div className="bg-white px-6 pt-5 lg:px-10">
+                        <BackButton fallback={route('admin.dashboard')} />
+                    </div>
+                    {children}
+                </main>
             </div>
         </>
     );

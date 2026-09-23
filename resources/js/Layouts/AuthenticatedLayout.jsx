@@ -1,4 +1,5 @@
 import ApplicationLogo from '@/Components/ApplicationLogo';
+import BackButton from '@/Components/BackButton';
 import CartLink from '@/Components/CartLink';
 import WishlistLink from '@/Components/WishlistLink';
 import Dropdown from '@/Components/Dropdown';
@@ -198,13 +199,12 @@ export default function AuthenticatedLayout({ header, children }) {
                 </div>
             </nav>
 
-            {header && (
-                <header className="bg-white shadow">
-                    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-                        {header}
-                    </div>
-                </header>
-            )}
+            <header className="bg-white shadow">
+                <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+                    <BackButton fallback={route('products.index')} className={header ? 'mb-3' : ''} />
+                    {header}
+                </div>
+            </header>
 
             <main>{children}</main>
         </div>
