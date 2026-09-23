@@ -23,7 +23,7 @@ class WishlistController extends Controller
         if ($wishlist) {
             $wishlist->delete();
 
-            return back()->with('success', 'Dihapus dari wishlist');
+            return back();
         }
 
         Wishlist::create([
@@ -31,7 +31,7 @@ class WishlistController extends Controller
             'product_id' => $product->id,
         ]);
 
-        return back()->with('success', 'Ditambahkan ke wishlist');
+        return back();
     }
 
     public function index(Request $request): Response

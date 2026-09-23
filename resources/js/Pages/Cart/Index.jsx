@@ -1,5 +1,9 @@
+import DangerButton from '@/Components/DangerButton';
+import Modal from '@/Components/Modal';
+import SecondaryButton from '@/Components/SecondaryButton';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import { useRef, useState } from 'react';
 
 const formatRupiah = (value) =>
     new Intl.NumberFormat('id-ID', {
@@ -31,8 +35,30 @@ export default function Index({ items = [], total = 0 }) {
         });
     };
 
-    const removeItem = (item) => {
-        router.delete(route('cart.remove', item.id), { preserveScroll: true });
+    const [itemToRemove, setItemToRemove] = useState(null);
+    const [isRemoving, setIsRemoving] = useState(false);
+    // Simpan item terakhir agar isi modal tidak kosong saat animasi menutup.
+    const lastItemRef = useRef(null);
+    if (itemToRemove) {
+        lastItemRef.current = itemToRemove;
+    }
+    const modalItem = itemToRemove ?? lastItemRef.current;
+
+    const closeRemoveModal = () => {
+        if (!isRemoving) {
+            setItemToRemove(null);
+        }
+    };
+
+    const removeItem = () => {
+        setIsRemoving(true);
+        router.delete(route('cart.remove', itemToRemove.id), {
+            preserveScroll: true,
+            onFinish: () => {
+                setIsRemoving(false);
+                setItemToRemove(null);
+            },
+        });
     };
 
     return (
@@ -100,7 +126,7 @@ export default function Index({ items = [], total = 0 }) {
                                                         <span className="w-9 text-center text-sm font-semibold text-slate-900">{item.quantity}</span>
                                                         <button type="button" onClick={() => updateQuantity(item, item.quantity + 1)} disabled={item.quantity >= item.product.stock} className="h-full w-9 text-lg text-slate-600 hover:bg-slate-50 disabled:text-slate-300" aria-label={`Tambah ${item.product.name}`}>+</button>
                                                     </div>
-                                                    <button type="button" onClick={() => removeItem(item)} className="inline-flex items-center gap-1 text-sm font-medium text-red-600 hover:text-red-800" aria-label={`Hapus ${item.product.name}`}>
+                                                    <button type="button" onClick={() => setItemToRemove(item)} className="inline-flex items-center gap-1 text-sm font-medium text-red-600 hover:text-red-800" aria-label={`Hapus ${item.product.name}`}>
                                                         <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16m-10 4v6m4-6v6M9 7V4h6v3m-9 0 1 14h8l1-14" /></svg>
                                                         Hapus
                                                     </button>
@@ -125,6 +151,24 @@ export default function Index({ items = [], total = 0 }) {
                     )}
                 </div>
             </div>
+
+            <Modal show={itemToRemove !== null} onClose={closeRemoveModal} maxWidth="md">
+                <div className="p-6">
+                    <h2 className="text-lg font-semibold text-slate-900">Hapus produk dari keranjang?</h2>
+                    <p className="mt-2 text-sm text-slate-600">
+                        <span className="font-semibold text-slate-900">{modalItem?.product.name}</span>
+                        {modalItem ? ` (${modalItem.quantity} item)` : ''} akan dihapus dari keranjang kamu.
+                    </p>
+                    <div className="mt-6 flex justify-end gap-3">
+                        <SecondaryButton onClick={closeRemoveModal} disabled={isRemoving}>
+                            Batal
+                        </SecondaryButton>
+                        <DangerButton onClick={removeItem} disabled={isRemoving}>
+                            {isRemoving ? 'Menghapus...' : 'Ya, hapus'}
+                        </DangerButton>
+                    </div>
+                </div>
+            </Modal>
         </AuthenticatedLayout>
     );
 }

@@ -1,4 +1,5 @@
 import CartLink from '@/Components/CartLink';
+import BackButton from '@/Components/BackButton';
 import WishlistButton from '@/Components/WishlistButton';
 import WishlistLink from '@/Components/WishlistLink';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
@@ -203,19 +204,19 @@ export default function Show({ product, relatedProducts = [], isWishlisted = fal
             <div className="min-h-screen bg-slate-50">
                 <header className="border-b border-slate-200 bg-white">
                     <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-8">
-                        <Link href="/products" className="text-xl font-semibold tracking-tight text-slate-900">
+                        <Link href={route('products.index')} className="text-xl font-semibold tracking-tight text-slate-900">
                             Banijya Shop
                         </Link>
                         <div className="flex items-center gap-5">
                             {auth?.user && <><WishlistLink count={wishlistCount} /><CartLink count={cartCount} /></>}
-                            <Link href={route('products.index')} className="text-sm font-medium text-slate-600 transition hover:text-slate-900">Kembali ke Produk</Link>
+                            <BackButton fallback={route('products.index')} />
                         </div>
                     </div>
                 </header>
 
                 <main className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
                     <nav className="mb-8 text-sm text-slate-500" aria-label="Breadcrumb">
-                        <Link href="/products" className="transition hover:text-slate-900">
+                        <Link href={route('products.index')} className="transition hover:text-slate-900">
                             Home
                         </Link>
                         <span className="mx-2">/</span>

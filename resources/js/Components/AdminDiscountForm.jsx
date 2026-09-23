@@ -12,13 +12,29 @@ const toDatetimeLocal = (value) => {
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
+// Simpan angka mentah (tanpa titik) untuk dikirim ke server.
+const toDigits = (value) => {
+    if (value === null || value === undefined || value === '') {
+        return '';
+    }
+
+    if (typeof value === 'number' || /^\d+(\.\d+)?$/.test(String(value))) {
+        return String(Math.round(Number(value)));
+    }
+
+    return String(value).replace(/\D/g, '');
+};
+
+// Tampilkan angka dengan pemisah ribuan titik, contoh: 100000 -> 100.000.
+const formatThousands = (digits) => (digits === '' ? '' : Number(digits).toLocaleString('id-ID'));
+
 export default function AdminDiscountForm({ discount = null }) {
     const isEditing = Boolean(discount);
     const { data, setData, post, processing, errors } = useForm({
         code: discount?.code ?? '',
         type: discount?.type ?? 'percentage',
         value: discount?.value ?? '',
-        min_purchase: discount?.min_purchase ?? '',
+        min_purchase: toDigits(discount?.min_purchase),
         starts_at: toDatetimeLocal(discount?.starts_at) ?? '',
         expires_at: toDatetimeLocal(discount?.expires_at) ?? '',
         is_active: discount?.is_active ?? true,
@@ -76,10 +92,10 @@ export default function AdminDiscountForm({ discount = null }) {
                     Minimal belanja <span className="font-normal text-slate-400">(opsional)</span>
                 </label>
                 <input
-                    type="number"
-                    step="0.01"
-                    value={data.min_purchase}
-                    onChange={(event) => setData('min_purchase', event.target.value)}
+                    type="text"
+                    inputMode="numeric"
+                    value={formatThousands(data.min_purchase)}
+                    onChange={(event) => setData('min_purchase', event.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, ''))}
                     className="mt-2 block w-full rounded-lg border-slate-300"
                     placeholder="Kosongkan kalau tidak ada minimal"
                 />
